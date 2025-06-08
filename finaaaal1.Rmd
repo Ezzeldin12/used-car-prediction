@@ -1,0 +1,563 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+if (!requireNamespace("pacman", quietly = TRUE)) {
+  install.packages("pacman")
+}
+library(pacman)
+p_load(
+  tidyverse,
+  skimr,
+  jsonlite,
+  GGally,
+  readxl,
+  janitor,
+  naniar,
+  dplyr,
+  VIM,
+  caret,
+  ggplot2,
+  car,
+  forcats,
+  corrplot
+)
+```
+
+```{r}
+df<- read_csv("C:\\Users\\zuz12\\OneDrive\\Desktop\\predictive project\\v1.csv")
+
+```
+
+```{r}
+missing_per1 <- colMeans(is.na(df)) * 100
+missing_per1
+```
+
+
+```{r}
+df$county <- NULL
+df$description <- NULL
+df$region_url<- NULL
+df$url<-NULL
+df$image_url<-NULL
+df$size<-NULL
+df$VIN<-NULL
+df$id<-NULL
+df$region<-NULL
+df$posting_date<-NULL
+df$model<-NULL
+```
+
+```{r}
+skim(df)
+
+```
+
+```{r}
+missing_per <- colMeans(is.na(df)) * 100
+missing_per
+```
+
+```{r}
+df <- df %>% mutate(across(where(is.character), as.factor))
+
+```
+
+```{r}
+df %>% get_dupes()
+
+```
+
+```{r}
+df_no_duplicates <- df %>% distinct()
+df_no_duplicates %>% get_dupes()
+```
+```{r}
+skim(df_no_duplicates)
+
+```
+#inconsist col
+```{r}
+unique(df_no_duplicates$condition)
+
+df_no_duplicates$condition[df_no_duplicates$condition == ""] <- NA
+```
+```{r}
+prop.table(table(df_no_duplicates$condition)) * 100
+
+```
+```{r}
+unique(df_no_duplicates$title_status)
+
+```
+```{r}
+df_no_duplicates$title_status[df_no_duplicates$title_status == ""] <- NA
+
+df_no_duplicates$title_status[df_no_duplicates$title_status == "missing"] <- NA
+```
+
+```{r}
+prop.table(table(df_no_duplicates$title_status)) * 100
+
+```
+
+```{r}
+unique(df_no_duplicates$manufacturer)
+
+df_no_duplicates$manufacturer[df_no_duplicates$manufacturer== ""] <- NA
+```
+```{r}
+prop.table(table(df_no_duplicates$manufacturer)) * 100
+
+```
+```{r}
+unique(df_no_duplicates$cylinders)
+
+df_no_duplicates$cylinders[df_no_duplicates$cylinders== ""] <- NA
+```
+
+```{r}
+prop.table(table(df_no_duplicates$cylinders)) * 100
+
+```
+```{r}
+unique(df_no_duplicates$fuel)
+
+```
+```{r}
+df_no_duplicates$fuel[df_no_duplicates$fuel== ""] <- NA
+
+prop.table(table(df_no_duplicates$fuel)) * 100
+```
+```{r}
+unique(df$transmission)
+
+df_no_duplicates$transmission[df_no_duplicates$transmission== ""] <- NA
+```
+
+```{r}
+prop.table(table(df_no_duplicates$transmission)) * 100
+
+```
+
+```{r}
+unique(df_no_duplicates$drive)
+
+df_no_duplicates$drive[df_no_duplicates$drive== ""] <- NA
+```
+```{r}
+prop.table(table(df_no_duplicates$drive)) * 100
+
+```
+
+```{r}
+unique(df_no_duplicates$type)
+
+df_no_duplicates$type[df_no_duplicates$type== ""] <- NA
+```
+
+```{r}
+prop.table(table(df_no_duplicates$type)) * 100
+
+```
+```{r}
+unique(df_no_duplicates$paint_color)
+
+df_no_duplicates$paint_color[df_no_duplicates$paint_color== ""] <- NA
+```
+```{r}
+prop.table(table(df_no_duplicates$paint_color)) * 100
+
+```
+```{r}
+unique(df_no_duplicates$state)
+
+df_no_duplicates$state[df_no_duplicates$state== ""] <- NA
+```
+```{r}
+prop.table(table(df_no_duplicates$state)) * 100
+
+```
+```{r}
+# Check for negative or zero values in price
+neg_or_zero_price <- df_no_duplicates$price <= 0 & !is.na(df_no_duplicates$price)
+cat("Number of negative or zero price values:", sum(neg_or_zero_price), "\n")
+```
+
+```{r}
+df_no_duplicates$price[df_no_duplicates$price <= 0 & !is.na(df_no_duplicates$price)] <- NA
+
+```
+
+```{r}
+skim(df_no_duplicates)
+
+```
+
+```{r}
+imputed_data1<- hotdeck(
+  data = df_no_duplicates,
+  variable =c("price","year","manufacturer","condition","cylinders","fuel","odometer","title_status","transmission","drive","type","paint_color","lat","long")
+
+)
+
+```
+
+```{r}
+imputed<-read_csv("C:\\Users\\zuz12\\OneDrive\\Desktop\\predictive project\\imputed_data.csv")
+
+```
+
+```{r}
+imputed$price_imp<-NULL
+imputed$year_imp<-NULL
+imputed$manufacturer_imp<-NULL
+imputed$condition_imp<-NULL
+imputed$cylinders_imp<-NULL
+imputed$fuel_imp<-NULL
+imputed$odometer_imp<-NULL
+imputed$title_status_imp<-NULL
+imputed$transmission_imp<-NULL
+imputed$drive_imp<-NULL
+imputed$type_imp<-NULL
+imputed$paint_color_imp<-NULL
+imputed$lat_imp<-NULL
+imputed$long_imp<-NULL
+imputed$...1 <-NULL
+imputed$state<-NULL
+```
+
+```{r}
+imputed$manufacturer <- fct_lump(imputed$manufacturer, n = 5)
+
+```
+
+```{r}
+table(imputed$manufacturer)
+
+```
+
+```{r}
+imputed$cylinders <- fct_lump(imputed$cylinders, n = 3)  # Keep top 3 cylinder counts
+imputed$type <- fct_lump(imputed$type, n = 4)  # Keep top 4 vehicle types
+imputed$paint_color <- fct_lump(imputed$paint_color, n = 4)  # Keep top 4 vehicle types
+```
+
+```{r}
+set.seed(123)
+train_index1 <- createDataPartition(imputed$price, p = 0.9, list=F)
+train_df1 <- imputed[train_index1, ]
+temp_df1 <- imputed[-train_index1, ]
+vald_index1 <- createDataPartition(temp_df1$price, p = 0.5, list=F)
+vald_df1 <- temp_df1[vald_index1, ]
+test_df1 <- temp_df1[-vald_index1, ]
+```
+
+```{r}
+boxplot(train_df1$price, main = "before Price Distribution", col = "green")
+
+```
+```{r}
+remove_outliers <- function(data, column) {
+  Q1 <- quantile(data[[column]], 0.25, na.rm = TRUE)
+  Q3 <- quantile(data[[column]], 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  data %>% filter(data[[column]] >= lower_bound & data[[column]] <= upper_bound)
+}
+```
+
+```{r}
+numeric_cols <- c("price", "year", "odometer", "lat", "long")
+
+```
+
+
+```{r}
+for (col in numeric_cols) {
+  train_df1 <- remove_outliers(train_df1, col)
+}
+```
+
+```{r}
+boxplot(train_df1$price, main = "Cleaned Price Distribution", col = "green")
+```
+```{r}
+ggplot(train_df1, aes(x = type)) +
+  geom_bar(fill = "steelblue") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Distribution of Car Types")
+```
+
+```{r}
+ggplot(train_df1, aes(x = price)) +
+  geom_histogram(binwidth = 2000, fill = "darkgreen", color = "white") +
+  xlim(0, 50000) +  # Show only cars priced below $50k
+  theme_minimal() +
+  labs(title = "Distribution of Car Prices (under $50k)", x = "Price", y = "Count")
+```
+
+```{r}
+ggplot(train_df1, aes(x = long, y = lat)) +
+  geom_point(alpha = 0.5, color = "blue") +
+  theme_minimal() +
+  labs(title = "Geographic Distribution of Listings")
+```
+
+```{r}
+ggplot(train_df1, aes(x = drive)) +
+  geom_bar(fill = "orange") +
+  theme_minimal() +
+  labs(title = "Distribution of Drive Types", x = "Drive", y = "Count")
+```
+```{r}
+train_df1 %>%
+  count(year) %>%
+  ggplot(aes(x = year, y = n)) +
+  geom_line(color = "dodgerblue", size = 1) +
+  geom_point(color = "dodgerblue", size = 2) +
+  theme_minimal() +
+  labs(title = "Number of Listings by Model Year", x = "Year", y = "Listings")
+```
+```{r}
+
+full_model <- lm(price ~ ., data = train_df1)
+
+
+step_model <- step(full_model, direction = "forward", trace = TRUE)
+
+summary(step_model)
+```
+
+
+```{r}
+p_load(corrplot)
+
+numeric_data <- train_df1 %>% select(where(is.numeric))
+cor_matrix <- cor(numeric_data, use = "complete.obs")
+
+
+
+
+# Visualize correlations
+corrplot(cor_matrix, method = "color", tl.cex = 0.7)
+
+
+# Find highly correlated variables
+high_cor <- findCorrelation(cor_matrix, cutoff = 0.8)
+filtered_data <- numeric_data[, -high_cor]
+
+
+high_cor
+```
+
+```{r}
+anova_model<-lm(train_df1$price~train_df1$manufacturer+train_df1$condition+train_df1$cylinders+train_df1$fuel+train_df1$title_status+train_df1$transmission+train_df1$drive+train_df1$type+train_df1$paint_color,data=train_df1)
+```
+
+```{r}
+anova(anova_model)
+
+```
+```{r}
+p_load(glmnet)
+
+```
+
+```{r}
+control1 <- trainControl(method = "cv", number = 5,savePredictions = TRUE)
+```
+
+
+
+```{r}
+lm_model <- train(
+  price ~.,
+  data = train_df1,
+  method = 'lm',
+  trControl = control1
+)
+```
+
+```{r}
+summary(lm_model)
+
+```
+```{r}
+lm_model$finalModel|>vif()
+```
+
+```{r}
+p_load(mgcv)
+
+```
+
+```{r}
+#Generalized Additive Model
+gam_model <- gam(price ~ s(year) + s(odometer) + manufacturer + condition + cylinders + fuel + title_status + transmission + drive + type + paint_color+s(long)+s(lat), data = train_df1)
+```
+
+```{r}
+summary(gam_model)
+
+```
+
+```{r}
+lasso_model <- train(
+  price ~.,
+  data = train_df1,
+  method = 'glmnet',
+  trControl = control1,
+  tuneGrid = expand.grid(
+    alpha = 1,
+    lambda = 10^seq(-3, 3, length = 100)
+  )
+)
+```
+
+
+```{r}
+ridge_model <- train(
+  price ~.,
+  data = train_df1,
+  method = 'glmnet',
+  trControl = control1,
+  tuneGrid = expand.grid(
+    alpha = 0,
+    lambda = 10^seq(-3, 3, length = 100)
+  )
+)
+```
+
+
+```{r}
+p_load(caretEnsemble)
+
+```
+
+
+```{r}
+model_list <- list(
+  lm = lm_model,
+  lasso = lasso_model,
+  ridge = ridge_model
+)
+```
+
+
+```{r}
+ensemble <- caretStack(
+  model_list,
+  method = "lm",
+  trControl =control1
+)
+```
+
+```{r}
+ensemble_pred_val <- predict(ensemble, newdata = vald_df1)
+ensemble_pred_test <- predict(ensemble, newdata = test_df1)
+```
+
+
+```{r}
+# Function to compute MAPE
+mape <- function(actual, predicted) {
+  mean(abs((actual - predicted) / actual), na.rm = TRUE) * 100
+}
+
+# Helper function to extract numeric predictions
+extract_numeric_predictions <- function(pred) {
+  if (is.list(pred) || is.matrix(pred) || is.data.frame(pred)) {
+    # Handle caret models (lasso_model, ridge_model) or ensemble
+    if ("pred" %in% names(pred)) {
+      return(as.numeric(pred$pred))  # caretStack ensemble predictions
+    } else {
+      return(as.numeric(unlist(pred)))  # Flatten lists or matrices
+    }
+  } else if (inherits(pred, "gam")) {
+    # Handle GAM predictions
+    return(as.numeric(pred))
+  } else {
+    return(as.numeric(pred))  # Default case for numeric vectors
+  }
+}
+
+# Generate predictions for all models with proper extraction
+lm_pred_val <- extract_numeric_predictions(predict(lm_model, newdata = vald_df1))
+lasso_pred_val <- extract_numeric_predictions(predict(lasso_model, newdata = vald_df1))
+ridge_pred_val <- extract_numeric_predictions(predict(ridge_model, newdata = vald_df1))
+gam_pred_val <- extract_numeric_predictions(predict(gam_model, newdata = vald_df1))
+ensemble_pred_val <- extract_numeric_predictions(predict(ensemble, newdata = vald_df1))
+
+lm_pred_test <- extract_numeric_predictions(predict(lm_model, newdata = test_df1))
+lasso_pred_test <- extract_numeric_predictions(predict(lasso_model, newdata = test_df1))
+ridge_pred_test <- extract_numeric_predictions(predict(ridge_model, newdata = test_df1))
+gam_pred_test <- extract_numeric_predictions(predict(gam_model, newdata = test_df1))
+ensemble_pred_test <- extract_numeric_predictions(predict(ensemble, newdata = test_df1))
+
+# List of models and their predictions
+models <- list(
+  "Linear Regression" = list(val = lm_pred_val, test = lm_pred_test),
+  "LASSO" = list(val = lasso_pred_val, test = lasso_pred_test),
+  "Ridge" = list(val = ridge_pred_val, test = ridge_pred_test),
+  "GAM" = list(val = gam_pred_val, test = gam_pred_test),
+  "Ensemble" = list(val = ensemble_pred_val, test = ensemble_pred_test)
+)
+
+# Function to create comparison table
+create_comparison_table <- function(actual, predicted, model_name, set_name) {
+  actual <- as.numeric(actual)
+  predicted <- as.numeric(predicted)  # Ensure predicted is numeric
+  if (length(actual) != length(predicted)) {
+    stop("Length mismatch between actual and predicted values for model: ", model_name)
+  }
+  df <- data.frame(
+    Model = rep(model_name, length(actual)),
+    Set = rep(set_name, length(actual)),
+    Actual_Price = actual,
+    Predicted_Price = predicted,
+    stringsAsFactors = FALSE
+  )
+  df %>% slice_head(n = 10)
+}
+
+# Function to compute metrics
+eval_metrics <- function(actual, predicted, model_name, set_name) {
+  metrics <- postResample(pred = predicted, obs = actual)
+  mape_val <- mape(actual, predicted)
+  data.frame(
+    Model = model_name,
+    Set = set_name,
+    MAE = metrics["MAE"],
+    RMSE = metrics["RMSE"],
+    Rsquared = metrics["Rsquared"],
+    MAPE = mape_val
+  )
+}
+
+# Generate individual outputs for each model
+for (model_name in names(models)) {
+  cat("\n=== Model:", model_name, "===\n")
+  
+  # Comparison tables
+  cat("\nComparison Table (Validation Set):\n")
+  print(create_comparison_table(vald_df1$price, models[[model_name]]$val, model_name, "Validation"))
+  cat("\nComparison Table (Test Set):\n")
+  print(create_comparison_table(test_df1$price, models[[model_name]]$test, model_name, "Test"))
+  
+  # Metrics
+  metrics <- rbind(
+    eval_metrics(vald_df1$price, models[[model_name]]$val, model_name, "Validation"),
+    eval_metrics(test_df1$price, models[[model_name]]$test, model_name, "Test")
+  )
+  cat("\nPerformance Metrics:\n")
+  print(metrics)
+  
+  cat("\n------------------------\n")
+}
+```
+
